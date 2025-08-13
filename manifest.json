@@ -4,23 +4,50 @@
   },
   "features": {
     "app_home": {
-      "home_tab_enabled": false,
+      "home_tab_enabled": true,
       "messages_tab_enabled": true,
       "messages_tab_read_only_enabled": false
     },
     "bot_user": {
       "display_name": "BOB",
       "always_online": true
-    }
+    },
+    "slash_commands": [
+      {
+        "command": "/cortex",
+        "description": "Ask your Cortex Agent",
+        "should_escape": false
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Ask Cortex about this",
+        "type": "message",
+        "callback_id": "cortex_message_shortcut"
+      }
+    ]
   },
   "oauth_config": {
     "scopes": {
-      "bot": ["channels:history", "chat:write", "im:history"]
+      "bot": [
+        "app_mentions:read",
+        "channels:history",
+        "chat:write",
+        "commands",
+        "im:history",
+        "im:read",
+        "im:write",
+        "users:read"
+      ]
     }
   },
   "settings": {
     "event_subscriptions": {
-      "bot_events": ["message.channels", "message.im"]
+      "bot_events": [
+        "app_mention",
+        "message.channels",
+        "message.im"
+      ]
     },
     "interactivity": {
       "is_enabled": true

@@ -1,59 +1,127 @@
-# Getting Started ⚡️ Bolt for Python
-> Slack app example from 📚 [Getting started with Bolt for Python][1]
+# Slack + Cortex Agent (Python Bolt) Guide
 
-## Overview
+This guide wires your Slack app to your custom Cortex Agent API with a polished Slack UI: slash command, modal, message shortcut, and App Home.
 
-This is a Slack app built with the [Bolt for Python framework][2] that showcases
-responding to events and interactive buttons.
+## What you get
+- Slash command `/cortex` to open a modal or ask inline
+- Message shortcut “Ask Cortex about this” for quick analysis
+- App Home with a CTA button and tips
+- Clean request to your Cortex Agent endpoint with optional context
+- Optional Snowflake context scaffold
 
-## Running locally
+## 1) Configure credentials (required)
+Set the following environment variables in your runtime (secrets manager, `.env`, or deployment config).
 
-### 1. Setup environment variables
+- SLACK_BOT_TOKEN=YOUR_SLACK_BOT_TOKEN
+- SLACK_APP_TOKEN=YOUR_SLACK_APP_TOKEN
+- CORTEX_AGENT_URL=YOUR_CORTEX_AGENT_ENDPOINT
+- CORTEX_API_KEY=YOUR_CORTEX_API_KEY
 
-```zsh
+Optional Snowflake (if your agent uses it):
+- SNOWFLAKE_ACCOUNT=YOUR_ACCOUNT
+- SNOWFLAKE_USER=YOUR_USER
+- SNOWFLAKE_PASSWORD=YOUR_PASSWORD
+- SNOWFLAKE_WAREHOUSE=YOUR_WAREHOUSE
+- SNOWFLAKE_DATABASE=YOUR_DATABASE
+- SNOWFLAKE_SCHEMA=YOUR_SCHEMA
 
-```
+Where to find/add in code:
+- Add values in your environment before running `python3 app.py`.
+- `app.py` reads `CORTEX_AGENT_URL` and `CORTEX_API_KEY` to authenticate calls.
 
-### 2. Setup your local project
-
-```zsh
-# Clone this project onto your machine
-git clone https://github.com/slackapi/bolt-python-getting-started-app.git
-
-# Change into this project
-cd bolt-python-getting-started-app/
-
-# Setup virtual environment
+## 2) Install dependencies
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Install the dependencies
 pip install -r requirements.txt
 ```
 
-### 3. Start servers
-```zsh
+Dependencies added:
+- `requests` for Cortex API calls
+- `snowflake-connector-python` for optional Snowflake integrations
+
+## 3) Update Slack manifest
+Open `manifest.json` and import it in Slack app config. This manifest includes:
+- Slash command `/cortex`
+- Message shortcut `Ask Cortex about this`
+- App Home enabled
+- Required bot scopes: `commands`, `chat:write`, `app_mentions:read`, `im:*`, `channels:history`, `users:read`
+
+After updating the manifest in Slack, reinstall the app to your workspace.
+
+## 4) Run locally (Socket Mode)
+```bash
+export SLACK_BOT_TOKEN=YOUR_SLACK_BOT_TOKEN
+export SLACK_APP_TOKEN=YOUR_SLACK_APP_TOKEN
+export CORTEX_AGENT_URL=https://your.cortex.endpoint/api/v1/agent/invoke
+export CORTEX_API_KEY=YOUR_CORTEX_API_KEY
 python3 app.py
 ```
 
-## More examples
+The app uses Socket Mode, so no public URL is required for development.
 
-Looking for more examples of Bolt for Python? Browse to [bolt-python/examples/][5] for a long list of usage, server, and deployment code samples!
+## 5) Use the app
+- Type `/cortex` in any channel, enter your question, optionally add context, and submit.
+- Or open a message’s “More actions” and choose “Ask Cortex about this”.
+- Check your App Home for a quick “Open Cortex” button.
 
-## Contributing
+## 6) What the Cortex API should return
+`app.py` expects a JSON response like one of the following:
+```json
+{
+  "answer": "Your answer as plain text"
+}
+```
+```json
+{
+  "answer": "Summary",
+  "blocks": [ { "type": "section", "text": { "type": "mrkdwn", "text": "Rich output" } } ]
+}
+```
+```json
+{
+  "message": "Alternative key for plain text",
+  "rich_text": "Rich formatted text (fallback if blocks absent)"
+}
+```
+At minimum, return an `answer` or `message` string. If you provide `blocks` they will be posted directly.
 
-### Issues and questions
+The app sends this payload to your Cortex endpoint:
+```json
+{
+  "question": "<user input>",
+  "source": "slack",
+  "metadata": {
+    "slack_user_id": "U...",
+    "slack_channel_id": "C..."
+  },
+  "context": "<optional additional context>"
+}
+```
+Authentication: `Authorization: Bearer <CORTEX_API_KEY>`
 
-Found a bug or have a question about this project? We'd love to hear from you!
+## 7) Optional: Snowflake context
+`app.py` contains `build_snowflake_context()` as a scaffold. If your agent needs Snowflake metadata, add it to the payload in `call_cortex_agent()` like:
+```python
+payload["snowflake"] = build_snowflake_context()
+```
+Provide or securely fetch any additional credentials your agent needs.
 
-1. Browse to [slackapi/bolt-python/issues][4]
-1. Create a new issue
-1. Mention that you're using this example app
+## 8) Production tips
+- Store all secrets in a secure vault, not in code.
+- Use Socket Mode for simplicity or deploy behind a secure public URL and switch to HTTP adapter.
+- Add retry/backoff when calling Cortex; tune request timeout.
+- Validate and sanitize user inputs server-side.
 
-See you there and thanks for helping to improve Bolt for everyone!
+## 9) Troubleshooting
+- Modal doesn’t open: ensure `commands` scope, reinstall app, verify Socket Mode enabled.
+- 401 from Cortex: check `CORTEX_API_KEY` and that your endpoint authorizes the token.
+- 404 on slash command: reinstall manifest and verify `/cortex` is present and enabled.
+- No response DM: check logs; verify your event subscriptions and bot is in the conversation.
 
-[1]: https://slack.dev/bolt-python/tutorial/getting-started
-[2]: https://slack.dev/bolt-python/
-[3]: https://slack.dev/bolt-python/tutorial/getting-started#setting-up-events
-[4]: https://github.com/slackapi/bolt-python/issues/new/choose
-[5]: https://github.com/slackapi/bolt-python/tree/main/examples
+## File map
+- `app.py`: Slack app, UI, and Cortex integration
+- `manifest.json`: Slack app configuration
+- `requirements.txt`: Python deps
+
+Happy shipping!
